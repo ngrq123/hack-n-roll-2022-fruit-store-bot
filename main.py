@@ -1,7 +1,7 @@
 import os
 
 import telebot
-from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, ReplyKeyboardMarkup, KeyboardButton
 from database import cart, fruits
 
 
@@ -32,6 +32,11 @@ def start(message):
 @bot.message_handler(commands=['items'])
 def items(message):
   chat_id = message.chat.id
+
+  if chat_id not in cart:
+    bot.send_message(chat_id=chat_id, text='/start')
+    return
+
   chat_text='Select the item you would like view in detail'
 
   buttons = []
@@ -69,9 +74,14 @@ def handle_callback(call):
 
 def send_item_details(chat_id, data):
   sub_intent, fruit_name = data
-  img_url = fruits[fruit_name]['img']
+  description = fruits[fruit_name]['description']
   price = fruits[fruit_name]['price']
-  caption = f'Item: {fruit_name}\nPrice: ${price}\n\nHow many would you like to add to cart?'
+  img_url = fruits[fruit_name]['img']
+  
+  caption = (f'Item: {fruit_name}\n'
+            f'Description: {description}\n'
+            f'Price: ${price}\n\n'
+            'How many would you like to add to cart?')
 
   buttons = []
   count = 0
@@ -85,7 +95,6 @@ def send_item_details(chat_id, data):
         callback_data=f'add {quantity} {fruit_name}'
       )
       row.append(button)
-      
     buttons.append(row)
 
   bot.send_photo(
@@ -97,10 +106,11 @@ def send_item_details(chat_id, data):
 
 
 def add_to_cart(chat_id, data):
-  quantity, fruit_name = data
-  
   if chat_id not in cart:
-    cart[chat_id] = {}
+    bot.send_message(chat_id=chat_id, text='/start')
+    return
+
+  quantity, fruit_name = data
 
   if fruit_name not in cart[chat_id].keys():
     cart[chat_id][fruit_name] = int(quantity)
@@ -119,8 +129,6 @@ def view_cart(message):
     return
 
   cart_text = 'Cart:\n'
-
-
 
   if cart[chat_id]:
     for fruit, quantity in cart[chat_id].items():
@@ -189,5 +197,29 @@ def checkout_cart(message):
     prices=prices
   )
 
-# bot.infinity_polling()
-bot.polling()
+
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def pre_checkout(pre_checkout_query):
+  bot.answer_pre_checkout_query(
+    pre_checkout_query.id, 
+    ok=True,
+    error_message='For testing, use the following payment credentials:\n\n'
+                  'Card Number:  5555 5555 5555 4444\n'
+                  'CVV: 123'
+                  'MM/YY: 12/34\n'
+                  'Cardholder Name: John'
+                  'Country: Singapore'
+                  'Zip Code: 123456'
+  )
+
+
+@bot.message_handler(content_types=['successful_payment'])
+def recieved_payment(message):
+  chat_id = message.chat.id
+  total_payment = message.successful_payment.total_amount / 100
+  currency = message.successful_payment.currency
+  chat_success_text = f'Payment success! We have recieved your payment of {currency} {total_payment:.2f}'
+
+  bot.send_message(chat_id=chat_id, text=chat_success_text)
+
+bot.infinity_polling()
