@@ -2,7 +2,7 @@ import os
 
 import telebot
 from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
-import database
+from database import cart, fruits
 
 
 # HackNRollFruitStoreBot
@@ -11,30 +11,31 @@ PAYMENT_KEY = os.getenv('PAYMENT_KEY')
 bot = telebot.TeleBot(API_KEY)
 
 bot.set_my_commands([
-  BotCommand('parrot', 'Sends back the same message'),
+  BotCommand('start', 'Starts the bot'),
   BotCommand('items', 'Lists all items available in store'),
   BotCommand('cart', 'Lists all items added in cart'),
   BotCommand('clear', 'Clears all items in the cart'),
   BotCommand('checkout', 'Request for payment')
 ])
 
-cart = {}
 
-
-@bot.message_handler(commands=['parrot'])
-def parrot(message):
-  message_text = message.text
-  print('Received message:', message_text)
+@bot.message_handler(commands=['start'])
+def start(message):
+  chat_id = message.chat.id
+  chat_user = message.chat.username
+  message_text = f'Hi {chat_user}'
+  
+  cart[chat_id] = {}
   bot.reply_to(message, message_text)
 
 
 @bot.message_handler(commands=['items'])
 def items(message):
-  print('Received items command')
   chat_id = message.chat.id
+  chat_text='Select the item you would like view in detail'
 
   buttons = []
-  for fruit_name in database.fruits:
+  for fruit_name in fruits:
     row = []
     button = InlineKeyboardButton(
       fruit_name, 
@@ -44,8 +45,8 @@ def items(message):
     buttons.append(row)
   
   bot.send_message(
-    chat_id, 
-    'Select the item you would like view in detail', 
+    chat_id=chat_id, 
+    text=chat_text, 
     reply_markup=InlineKeyboardMarkup(buttons)
   )
 
@@ -68,8 +69,8 @@ def handle_callback(call):
 
 def send_item_details(chat_id, data):
   sub_intent, fruit_name = data
-  img_url = database.fruits[fruit_name]['img']
-  price = database.fruits[fruit_name]['price']
+  img_url = fruits[fruit_name]['img']
+  price = fruits[fruit_name]['price']
   caption = f'Item: {fruit_name}\nPrice: ${price}\n\nHow many would you like to add to cart?'
 
   buttons = []
@@ -97,23 +98,33 @@ def send_item_details(chat_id, data):
 
 def add_to_cart(chat_id, data):
   quantity, fruit_name = data
-  if fruit_name not in cart.keys():
-    cart[fruit_name] = int(quantity)
+  
+  if chat_id not in cart:
+    cart[chat_id] = {}
+
+  if fruit_name not in cart[chat_id].keys():
+    cart[chat_id][fruit_name] = int(quantity)
   else:
-    cart[fruit_name] += int(quantity)
+    cart[chat_id][fruit_name] += int(quantity)
   
   bot.send_message(chat_id, f'Added {quantity} {fruit_name}')
 
 
 @bot.message_handler(commands=['cart'])
 def view_cart(message):
-  print('View cart')
   chat_id = message.chat.id
+  
+  if chat_id not in cart:
+    bot.send_message(chat_id=chat_id, text='/start')
+    return
+
   cart_text = 'Cart:\n'
 
-  if cart:
-    for fruit, quantity in cart.items():
-      cart_text += f'- {fruit}: {quantity}\n'
+
+
+  if cart[chat_id]:
+    for fruit, quantity in cart[chat_id].items():
+      cart_text += f'- {quantity}x {fruit}\n'
   else:
     cart_text = 'Cart is empty!'
   
@@ -125,32 +136,37 @@ def view_cart(message):
 
 @bot.message_handler(commands=['clear'])
 def clear_cart(message):
-  print('Clear cart')
-  cart.clear()
   chat_id = message.chat.id
-  cart_text = 'Cart has been cleared!'
-  
-  bot.send_message(
-    chat_id=chat_id,
-    text=cart_text
-  )
+
+  if chat_id not in cart:
+    bot.send_message(chat_id=chat_id, text='/start')
+    return
+
+  cart_cleared_text = 'Cart has been cleared!'
+  cart[chat_id].clear()
+
+  bot.send_message(chat_id=chat_id, text=cart_cleared_text)
 
 
 @bot.message_handler(commands=['checkout'])
 def checkout_cart(message):
-  print('Checkout cart')
   chat_id = message.chat.id
-
-  if not cart:
+  
+  if chat_id not in cart:
+    bot.send_message(chat_id=chat_id, text='/start')
+    return
+  
+  cart_empty_text = 'Cart is empty, nothing to checkout!'
+  if not cart[chat_id]:
     bot.send_message(
       chat_id=chat_id,
-      text='Cart is empty, nothing to checkout!'
+      text=cart_empty_text
     )
     return
   
   prices = []
-  for fruit_name, quantity in cart.items():
-    item_price = database.fruits[fruit_name]['price']
+  for fruit_name, quantity in cart[chat_id].items():
+    item_price = fruits[fruit_name]['price']
     total_item_price_cents = quantity * item_price * 100
     prices.append(
       LabeledPrice(
@@ -159,16 +175,19 @@ def checkout_cart(message):
       )
     )
 
-
+  title = 'Fruit Basket'
+  description = '100% Organic. Fresh and sourced locally.'
+  invoice_payload = 'invoice_payload'
+  currency = 'SGD'
   bot.send_invoice(
     chat_id=chat_id,
-    title='Fruit Basket',
-    description='100% Organic. Fresh and sourced locally.',
-    invoice_payload='invoice_payload',
+    title=title,
+    description=description,
+    invoice_payload=invoice_payload,
     provider_token=PAYMENT_KEY,
-    currency='SGD',
+    currency=currency,
     prices=prices
   )
 
-
+# bot.infinity_polling()
 bot.polling()
