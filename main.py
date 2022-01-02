@@ -18,6 +18,13 @@ bot.set_my_commands([
   BotCommand('checkout', 'Request for payment')
 ])
 
+def request_start(chat_id):
+  """A helper function to request user to execute command /start"""
+  if chat_id not in cart:
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  
+  return
+  
 
 @bot.message_handler(commands=['parrot'])
 def parrot(message):
@@ -52,9 +59,8 @@ def items(message):
   """The commnad that lists all available items for sale."""
 
   chat_id = message.chat.id
-
-  if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  if chat_id not in cart: 
+    request_start(chat_id)
     return
 
   chat_text='Select the item you would like view in detail'
@@ -132,8 +138,8 @@ def view_item_details(chat_id, data):
 def add_to_cart(chat_id, data):
   """Increments the item's quanity in the cart."""
 
-  if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  if chat_id not in cart: 
+    request_start(chat_id)
     return
 
   quantity, fruit_name = data
@@ -151,9 +157,8 @@ def view_cart(message):
   """The command that lists all items currently present in cart."""
 
   chat_id = message.chat.id
-  
-  if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  if chat_id not in cart: 
+    request_start(chat_id)
     return
 
   cart_text = '__Cart__\n'
@@ -176,9 +181,8 @@ def clear_cart(message):
   """The command that removes all previously add items in the cart."""
 
   chat_id = message.chat.id
-
-  if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  if chat_id not in cart: 
+    request_start(chat_id)
     return
 
   cart_cleared_text = 'Cart has been cleared!'
@@ -209,9 +213,8 @@ def checkout_cart(message):
   """The command that creates an invoice based on the items added to cart."""
 
   chat_id = message.chat.id
-  
-  if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
+  if chat_id not in cart: 
+    request_start(chat_id)
     return
   
   cart_empty_text = 'Cart is empty, nothing to checkout\!'
