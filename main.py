@@ -1,7 +1,7 @@
 import os
 
 import telebot
-from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice, ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 from database import cart, fruits
 
 
@@ -19,22 +19,42 @@ bot.set_my_commands([
 ])
 
 
+@bot.message_handler(commands=['parrot'])
+def parrot(message):
+  """The command that replies the user with the text message it recieves."""
+
+  message_text = message.text
+  print('Received message:', message_text)
+  bot.reply_to(message, message_text)
+
+
 @bot.message_handler(commands=['start'])
 def start(message):
+  """The command that welcomes the user and configures the required initial setup."""
+
   chat_id = message.chat.id
-  chat_user = message.chat.username
+
+  if message.chat.type == 'private':
+    chat_user = message.chat.first_name
+  else:
+    chat_user = message.chat.title
+  
   message_text = f'Hi {chat_user}'
   
+  # Initialise cart
   cart[chat_id] = {}
+  
   bot.reply_to(message, message_text)
 
 
 @bot.message_handler(commands=['items'])
 def items(message):
+  """The commnad that lists all available items for sale."""
+
   chat_id = message.chat.id
 
   if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='/start')
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
     return
 
   chat_text='Select the item you would like view in detail'
@@ -44,7 +64,7 @@ def items(message):
     row = []
     button = InlineKeyboardButton(
       fruit_name, 
-      callback_data='items detail ' + fruit_name
+      callback_data='view details ' + fruit_name
     )
     row.append(button)
     buttons.append(row)
@@ -58,22 +78,26 @@ def items(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
+  """Handles the execution of the respective functions upon reciept of the callback query."""
+
   chat_id = call.message.chat.id
   data = call.data
   intent, data = data.split()[0], data.split()[1:]
   
-  if intent == 'items':
-    send_item_details(chat_id, data)
+  if intent == 'view':
+    view_item_details(chat_id, data)
     return
   if intent == 'add':
     add_to_cart(chat_id, data)
     return
 
-  bot.send_message(chat_id, 'Callback not implemented')
+  print(f'{chat_id}: Callback not implemented')
 
 
-def send_item_details(chat_id, data):
-  sub_intent, fruit_name = data
+def view_item_details(chat_id, data):
+  """Displays the item details and an inline keyboard to add the item."""
+
+  _, fruit_name = data
   description = fruits[fruit_name]['description']
   price = fruits[fruit_name]['price']
   img_url = fruits[fruit_name]['img']
@@ -106,8 +130,10 @@ def send_item_details(chat_id, data):
 
 
 def add_to_cart(chat_id, data):
+  """Increments the item's quanity in the cart."""
+
   if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='/start')
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
     return
 
   quantity, fruit_name = data
@@ -122,32 +148,37 @@ def add_to_cart(chat_id, data):
 
 @bot.message_handler(commands=['cart'])
 def view_cart(message):
+  """The command that lists all items currently present in cart."""
+
   chat_id = message.chat.id
   
   if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='/start')
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
     return
 
-  cart_text = 'Cart:\n'
+  cart_text = '__Cart__\n'
 
   if cart[chat_id]:
     for fruit, quantity in cart[chat_id].items():
-      cart_text += f'- {quantity}x {fruit}\n'
+      cart_text += f'\- {quantity}x {fruit}\n'
   else:
-    cart_text = 'Cart is empty!'
+    cart_text = 'Cart is empty'
   
   bot.send_message(
     chat_id=chat_id,
-    text=cart_text
+    text=cart_text,
+    parse_mode='MarkdownV2'
   )
 
 
 @bot.message_handler(commands=['clear'])
 def clear_cart(message):
+  """The command that removes all previously add items in the cart."""
+
   chat_id = message.chat.id
 
   if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='/start')
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
     return
 
   cart_cleared_text = 'Cart has been cleared!'
@@ -156,15 +187,34 @@ def clear_cart(message):
   bot.send_message(chat_id=chat_id, text=cart_cleared_text)
 
 
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def pre_checkout(pre_checkout_query):
+  """Handles the pre checkout payment process event."""
+
+  bot.answer_pre_checkout_query(
+    pre_checkout_query.id, 
+    ok=True,
+    error_message='For testing, use the following payment credentials:\n\n'
+                  'Card Number:  5555 5555 5555 4444\n'
+                  'CVV: 123'
+                  'MM/YY: 12/34\n'
+                  'Cardholder Name: John'
+                  'Country: Singapore'
+                  'Zip Code: 123456'
+  )
+
+
 @bot.message_handler(commands=['checkout'])
 def checkout_cart(message):
+  """The command that creates an invoice based on the items added to cart."""
+
   chat_id = message.chat.id
   
   if chat_id not in cart:
-    bot.send_message(chat_id=chat_id, text='/start')
+    bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
     return
   
-  cart_empty_text = 'Cart is empty, nothing to checkout!'
+  cart_empty_text = 'Cart is empty, nothing to checkout\!'
   if not cart[chat_id]:
     bot.send_message(
       chat_id=chat_id,
@@ -194,32 +244,22 @@ def checkout_cart(message):
     invoice_payload=invoice_payload,
     provider_token=PAYMENT_KEY,
     currency=currency,
-    prices=prices
-  )
-
-
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def pre_checkout(pre_checkout_query):
-  bot.answer_pre_checkout_query(
-    pre_checkout_query.id, 
-    ok=True,
-    error_message='For testing, use the following payment credentials:\n\n'
-                  'Card Number:  5555 5555 5555 4444\n'
-                  'CVV: 123'
-                  'MM/YY: 12/34\n'
-                  'Cardholder Name: John'
-                  'Country: Singapore'
-                  'Zip Code: 123456'
+    prices=prices,
+    start_parameter='test'
   )
 
 
 @bot.message_handler(content_types=['successful_payment'])
-def recieved_payment(message):
+def payment_success(message):
+  """Handles the event upon successful reciept of payments"""
+  
   chat_id = message.chat.id
   total_payment = message.successful_payment.total_amount / 100
   currency = message.successful_payment.currency
-  chat_success_text = f'Payment success! We have recieved your payment of {currency} {total_payment:.2f}'
+  chat_success_text = f'Payment success! We have received your payment of {currency} {total_payment:.2f}'
 
   bot.send_message(chat_id=chat_id, text=chat_success_text)
+  cart[chat_id].clear()
+
 
 bot.infinity_polling()
