@@ -18,13 +18,14 @@ bot.set_my_commands([
   BotCommand('checkout', 'Request for payment')
 ])
 
+
 def request_start(chat_id):
   """A helper function to request user to execute command /start"""
   if chat_id not in cart:
     bot.send_message(chat_id=chat_id, text='Please start the bot by sending /start')
   
   return
-  
+
 
 @bot.message_handler(commands=['parrot'])
 def parrot(message):
@@ -240,6 +241,7 @@ def checkout_cart(message):
   description = '100% Organic. Fresh and sourced locally.'
   invoice_payload = 'invoice_payload'
   currency = 'SGD'
+  start_parameter = 'Fruit_Basket'
   bot.send_invoice(
     chat_id=chat_id,
     title=title,
@@ -248,7 +250,7 @@ def checkout_cart(message):
     provider_token=PAYMENT_KEY,
     currency=currency,
     prices=prices,
-    start_parameter='test'
+    start_parameter=start_parameter
   )
 
 
@@ -262,6 +264,9 @@ def payment_success(message):
   chat_success_text = f'Payment success! We have received your payment of {currency} {total_payment:.2f}'
 
   bot.send_message(chat_id=chat_id, text=chat_success_text)
+  bot.send_sticker(
+    chat_id=chat_id, data='CAACAgIAAxkBAAEDmV9h0bDeNcC9F9eUr6x6n3mEsysEZQACbwADpsrIDFLE6St_zL2jIwQ'
+  )
   cart[chat_id].clear()
 
 
