@@ -1,7 +1,13 @@
 import os
 
 import telebot
-from telebot.types import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telebot.types import (
+  BotCommand,
+  InlineKeyboardButton,
+  InlineKeyboardMarkup, 
+  LabeledPrice
+)
+
 from database import cart, fruits
 
 
@@ -128,9 +134,9 @@ def view_item_details(chat_id, data):
 
   buttons = []
   count = 0
-  for i in range(1, 4):
+  for _ in range(3):
     row = []
-    for j in range(1, 4):
+    for _ in range(3):
       count += 1
       quantity = str(count)
       button = InlineKeyboardButton(
