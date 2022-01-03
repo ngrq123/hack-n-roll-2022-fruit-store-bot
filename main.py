@@ -100,7 +100,7 @@ def items(message):
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
   """
-  Handles the execution of the respective functions upon reciept of the callback query
+  Handles the execution of the respective functions upon receipt of the callback query
   """
 
   chat_id = call.message.chat.id
@@ -128,9 +128,9 @@ def view_item_details(chat_id, data):
   img_url = fruits[fruit_name]['img']
   
   caption = (f'Item: {fruit_name}\n'
-            f'Description: {description}\n'
-            f'Price: ${price}\n\n'
-            'How many would you like to add to cart?')
+    f'Description: {description}\n'
+    f'Price: ${price:.2f}\n\n'
+    'How many would you like to add to cart?')
 
   buttons = []
   count = 0
@@ -156,7 +156,7 @@ def view_item_details(chat_id, data):
 
 def add_to_cart(chat_id, data):
   """
-  Increments the item's quanity in the cart
+  Increments the item's quantity in the cart
   """
 
   if chat_id not in cart: 
@@ -164,11 +164,8 @@ def add_to_cart(chat_id, data):
     return
 
   quantity, fruit_name = data
-
-  if fruit_name not in cart[chat_id].keys():
-    cart[chat_id][fruit_name] = int(quantity)
-  else:
-    cart[chat_id][fruit_name] += int(quantity)
+  cart[chat_id][fruit_name] = cart[chat_id].get(fruit_name, 0)
+  cart[chat_id][fruit_name] += int(quantity)
   
   bot.send_message(chat_id, f'Added {quantity} {fruit_name}')
 
@@ -225,13 +222,15 @@ def pre_checkout(pre_checkout_query):
   bot.answer_pre_checkout_query(
     pre_checkout_query.id, 
     ok=True,
-    error_message='For testing, use the following payment credentials:\n\n'
-                  'Card Number:  5555 5555 5555 4444\n'
-                  'CVV: 123'
-                  'MM/YY: 12/34\n'
-                  'Cardholder Name: John'
-                  'Country: Singapore'
-                  'Zip Code: 123456'
+    error_message="""
+      For testing, use the following payment credentials:\n\n
+      Card Number:  5555 5555 5555 4444\n
+      CVV: 123
+      MM/YY: 12/34\n
+      Cardholder Name: John
+      Country: Singapore
+      Zip Code: 123456
+    """
   )
 
 
@@ -246,8 +245,8 @@ def checkout_cart(message):
     request_start(chat_id)
     return
   
-  cart_empty_text = 'Cart is empty, nothing to checkout\!'
   if not cart[chat_id]:
+    cart_empty_text = 'Cart is empty, nothing to checkout\!'
     bot.send_message(
       chat_id=chat_id,
       text=cart_empty_text
@@ -270,6 +269,7 @@ def checkout_cart(message):
   invoice_payload = 'invoice_payload'
   currency = 'SGD'
   start_parameter = 'Fruit_Basket'
+
   bot.send_invoice(
     chat_id=chat_id,
     title=title,
@@ -297,7 +297,9 @@ def payment_success(message):
   bot.send_sticker(
     chat_id=chat_id, data='CAACAgIAAxkBAAEDmV9h0bDeNcC9F9eUr6x6n3mEsysEZQACbwADpsrIDFLE6St_zL2jIwQ'
   )
-  cart[chat_id].clear()
+
+  if chat_id in cart:
+    cart[chat_id].clear()
 
 
 bot.infinity_polling()
