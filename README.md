@@ -53,3 +53,6 @@ API_KEY=your_API_KEY
 PAYMENT_KEY=your_PAYMENT_KEY
 ```
 7. On Telegram, search for your bot's username and interact with it
+
+## Link to Workshop Recording
+https://youtu.be/y3dCEEjM3sg
